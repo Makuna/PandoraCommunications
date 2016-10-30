@@ -19,19 +19,35 @@ public:
         WiFi.setOutputPower(8); // low power
         WiFi.mode(WIFI_STA);
 
+		_ssid = ssid;
+		_password = password;
         WiFi.begin(ssid, password);
+
+		while (WiFi.status() != WL_CONNECTED)
+		{
+			delay(100);
+			Serial.println(".");
+		}
+
+		ConnectClient();
+		delay(1000);
     }
 
     void loop()
     {
-        if (WiFi.isConnected())
+ /*       if (WiFi.status() != WL_CONNECTED)
         {
-            if (!_client)
-            {
-                Serial.println("WiFi lost connection");
-                ConnectClient();
-            }
+			Serial.println("WiFi lost connection");
+			WiFi.begin(_ssid, _password);
         }
+		else*/
+		{
+			if (!_client)
+			{
+				Serial.println("WiFi lost connection");
+				ConnectClient();
+			}
+		}
     }
 
     bool sendCommand(const BookCommand& command)
@@ -55,6 +71,8 @@ public:
 
 private:
     WiFiClient _client;
+	const char* _ssid;
+	const char* _password;
 
     void ConnectClient()
     {
