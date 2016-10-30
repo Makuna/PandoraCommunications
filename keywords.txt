@@ -1,0 +1,24 @@
+#######################################
+# Syntax Coloring Map Pandora Communcations
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+PandoraClient	KEYWORD1
+PandoraServer	KEYWORD1
+
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+loop	KEYWORD2
+begin	KEYWORD2
+sendCommand	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
