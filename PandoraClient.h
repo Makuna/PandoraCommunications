@@ -35,7 +35,7 @@ public:
             {
                 // heart beat required to keep client alive
                 uint32_t time = millis();
-                if (time - _heartBeatTime > 6000)
+                if (time - _heartBeatTime > 2000)
                 {
                     _heartBeatTime = time;
 
@@ -47,8 +47,7 @@ public:
         else
         {
             delay(500);
-            Serial.print(" .");
-            Serial.print(WiFi.status());
+            Serial.print(".");
         }
     }
 
