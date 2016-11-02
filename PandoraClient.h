@@ -19,35 +19,37 @@ public:
         WiFi.setOutputPower(8); // low power
         WiFi.mode(WIFI_STA);
 
-		_ssid = ssid;
-		_password = password;
         WiFi.begin(ssid, password);
-
-		while (WiFi.status() != WL_CONNECTED)
-		{
-			delay(100);
-			Serial.println(".");
-		}
-
-		ConnectClient();
-		delay(1000);
     }
 
     void loop()
     {
- /*       if (WiFi.status() != WL_CONNECTED)
+        if (WiFi.isConnected())
         {
-			Serial.println("WiFi lost connection");
-			WiFi.begin(_ssid, _password);
-        }
-		else*/
-		{
 			if (!_client)
 			{
-				Serial.println("WiFi lost connection");
 				ConnectClient();
+                Serial.println("reconnected");
 			}
+            else
+            {
+                // heart beat required to keep client alive
+                uint32_t time = millis();
+                if (time - _heartBeatTime > 6000)
+                {
+                    _heartBeatTime = time;
+
+                    const uint16_t heartBeat = 0xffff;
+                    _client.write((uint8_t*)&heartBeat, sizeof(heartBeat));
+                }
+            }
 		}
+        else
+        {
+            delay(500);
+            Serial.print(" .");
+            Serial.print(WiFi.status());
+        }
     }
 
     bool sendCommand(const BookCommand& command)
@@ -64,15 +66,14 @@ public:
         }
         else
         {
-            Serial.println("send without a client");
+            Serial.println("attempted send without a connection");
             return false;
         }
     }
 
 private:
     WiFiClient _client;
-	const char* _ssid;
-	const char* _password;
+    uint32_t _heartBeatTime;
 
     void ConnectClient()
     {
@@ -99,6 +100,8 @@ private:
             Serial.println(_client.remoteIP());
             Serial.println();
             WiFi.printDiag(Serial);
+
+            _heartBeatTime = millis();
         }
         else
         {

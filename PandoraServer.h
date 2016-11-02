@@ -66,7 +66,14 @@ public:
                 int read = _client.read((uint8_t*)(&command), sizeof(BookCommand));
                 if (sizeof(BookCommand) == read)
                 {
-                    callback(command);
+                    if (command.command == 0xff && command.param == 0xff)
+                    {
+                        // ignore the heartbeat
+                    }
+                    else
+                    {
+                        callback(command);
+                    }
                 }
                 else
                 {
