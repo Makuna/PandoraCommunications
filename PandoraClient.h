@@ -2,6 +2,26 @@
 
 #include <ESP8266WiFi.h>
 
+enum PandoraClientState
+{
+    PandoraClientState_WifiConnecting,
+    PandoraClientState_WifiConnected,
+
+    PandoraClientState_ClientConnecting,
+    PandoraClientState_ClientConnected,
+
+    PandoraClientState_DeviceReset,
+};
+
+struct PandoraClientStatus
+{
+    PandoraClientState state;
+};
+
+// define ClientStatusCallback to be a function like
+// void OnClientStatusChange(const PandoraClientStatus& status) {}
+typedef void(*ClientStatusCallback)(const PandoraClientStatus& status);
+
 class PandoraClient
 {
 public:
@@ -20,16 +40,25 @@ public:
         WiFi.mode(WIFI_STA);
 
         WiFi.begin(ssid, password);
+        _state = PandoraClientState_WifiConnecting;
     }
 
-    void loop()
+    void loop(ClientStatusCallback callback)
     {
         if (WiFi.isConnected())
         {
+            if (_state == PandoraClientState_WifiConnecting)
+            {
+                _state = PandoraClientState_WifiConnected;
+                PandoraClientStatus status;
+                status.state = _state;
+                callback(status);
+            }
+
 			if (!_client)
 			{
-				ConnectClient();
-                Serial.println("reconnected");
+                _state = PandoraClientState_ClientConnecting;
+				ConnectClient(callback);
 			}
             else
             {
@@ -46,39 +75,38 @@ public:
 		}
         else
         {
+            _state = PandoraClientState_WifiConnecting;
+
+            PandoraClientStatus status;
+            status.state = _state;
+            callback(status);
+
             delay(500);
-            Serial.print(".");
         }
     }
 
     bool sendCommand(const BookCommand& command)
     {
+        bool sent = true;
         if (_client)
         {
             _client.write((uint8_t*)&command, sizeof(BookCommand));
-
-            Serial.print(" > ");
-            Serial.print(command.command);
-            Serial.print(" ");
-            Serial.println(command.param);
-            return true;
         }
         else
         {
-            Serial.println("attempted send without a connection");
-            return false;
+            sent = false;
         }
+        return sent;
     }
 
 private:
     WiFiClient _client;
     uint32_t _heartBeatTime;
+    PandoraClientState _state;
 
-    void ConnectClient()
+    void ConnectClient(ClientStatusCallback callback)
     {
         IPAddress ipGateway = WiFi.gatewayIP();
-        Serial.println("Gateway IP address:");
-        Serial.println(ipGateway);
 
         for (int attempts = 0; attempts < 3; ++attempts)
         {
@@ -87,25 +115,29 @@ private:
                 break;
             }
 
-            Serial.print(".");
+            PandoraClientStatus status;
+            status.state = _state;
+            callback(status);
+
             delay(1000);
         }
 
         if (_client)
         {
-            Serial.println("Client connected");
+            _state = PandoraClientState_ClientConnected;
 
-            Serial.println("Remote IP address:");
-            Serial.println(_client.remoteIP());
-            Serial.println();
-            WiFi.printDiag(Serial);
+            PandoraClientStatus status;
+            status.state = _state;
+            callback(status);
 
             _heartBeatTime = millis();
         }
         else
         {
-            Serial.println("RESETTING");
-            Serial.flush();
+            PandoraClientStatus status;
+            status.state = PandoraClientState_DeviceReset;
+            callback(status);
+
 
             ESP.reset();
             delay(1000);

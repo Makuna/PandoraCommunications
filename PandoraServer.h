@@ -1,6 +1,22 @@
 #pragma once
 
 #include <ESP8266WiFi.h>
+enum PandoraServerState
+{
+    PandoraServerState_ClientConnected,
+
+    PandoraServerState_CommandReadError,
+};
+
+struct PandoraServerStatus
+{
+    PandoraServerState state;
+};
+
+// define ServerStatusCallback to be a function like
+// void OnServerStatusChange(const PandoraServerStatus& status) {}
+typedef void(*ServerStatusCallback)(const PandoraServerStatus& status);
+
 
 // define ReceiveCommandCallback to be a function like
 // void OnReceiveCallBack(const BookCommand& param) {}
@@ -23,8 +39,6 @@ public:
         delay(500);
 
         uint8_t channel = _scanForOpenChannel(11);
-        Serial.print("using channel ");
-        Serial.println(channel);
 
         WiFi.setPhyMode(WIFI_PHY_MODE_11G);
         WiFi.setOutputPower(8); // low power
@@ -35,24 +49,20 @@ public:
         delay(1000);
 
         IPAddress myIP = WiFi.softAPIP();
-        Serial.print("AP IP address: ");
-        Serial.println(myIP);
-        Serial.print("SSID: ");
-        Serial.println(WiFi.SSID());
 
         // Start the server
         _server.begin();
-        Serial.println("Server started");
-
-        WiFi.printDiag(Serial);
     }
 
-    void loop(ReceiveCommandCallback callback)
+    void loop(ReceiveCommandCallback callback, ServerStatusCallback statusCallback)
     {
         WiFiClient newClient = _server.available();
         if (newClient)
         {
-            Serial.println("client connected");
+            PandoraServerStatus status;
+            status.state = PandoraServerState_ClientConnected;
+            statusCallback(status);
+            
             _client.stop();
             _client = newClient;
         }
@@ -77,7 +87,9 @@ public:
                 }
                 else
                 {
-                    Serial.println("read command error");
+                    PandoraServerStatus status;
+                    status.state = PandoraServerState_CommandReadError;
+                    statusCallback(status);
                 }
             }
         }
@@ -104,7 +116,8 @@ private:
             {
                 countUsingChannel[channelScan] += rankScan;
 
-                // higher ranked channels also bleed over to nearby channels 
+                // higher ranked channels also bleed over to nearby channels so
+                // make the nearby less desirable
                 if (rankScan > 2)
                 {
                     countUsingChannel[channelScan - 1] += 1;
@@ -112,17 +125,17 @@ private:
                 }
             }
 
-            Serial.print(WiFi.SSID(indexNetwork));
-            Serial.print(" (");
-            Serial.print(channelScan);
-            Serial.print(") ");
-            Serial.print(rssiScan);
-            Serial.print(" [");
-            Serial.print(rankScan);
-            Serial.println("]");
+            //Serial.print(WiFi.SSID(indexNetwork));
+            //Serial.print(" (");
+            //Serial.print(channelScan);
+            //Serial.print(") ");
+            //Serial.print(rssiScan);
+            //Serial.print(" [");
+            //Serial.print(rankScan);
+            //Serial.println("]");
         }
 
-        Serial.println();
+        //Serial.println();
 
         // find an open channel 
         // skip channel 1 completely, too many things default to it
